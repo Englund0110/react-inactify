@@ -1,17 +1,72 @@
 /// <reference types="@testing-library/jest-dom" />
 
-import { render, screen } from '@testing-library/react'
-import { expect, test } from 'vitest'
-import { MyButton } from '../src'
+import { render, screen, renderHook, act } from "@testing-library/react";
+import { expect, test, describe, beforeEach, vi } from "vitest";
+import { InactifyProvider, InactifyContext } from "../src";
+import { useContext } from "react";
 
-test('button', () => {
-  render(<MyButton type="primary" />)
+describe("InactifyProvider", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
 
-  const buttonElement = screen.getByText(/my button/i)
+  test("renders children correctly", () => {
+    const TestChild = () => <div data-testid="test-child">Test Content</div>;
+    render(
+      <InactifyProvider>
+        <TestChild />
+      </InactifyProvider>
+    );
 
-  expect(buttonElement).toBeInTheDocument()
-  expect(buttonElement).toHaveTextContent('my button type: primary count: 0')
-  expect(buttonElement.outerHTML).toMatchInlineSnapshot(`"<button class="my-button">my button<br> type: primary<br> count: 0</button>"`)
+    expect(screen.getByTestId("test-child")).toBeInTheDocument();
+    expect(screen.getByText("Test Content")).toBeInTheDocument();
+  });
 
-  expect(buttonElement).toHaveClass('my-button')
-})
+  test("provides correct context methods", () => {
+    const { result } = renderHook(() => useContext(InactifyContext), {
+      wrapper: InactifyProvider,
+    });
+
+    expect(result.current).toBeDefined();
+    expect(typeof result.current?.markActive).toBe("function");
+    expect(typeof result.current?.updateLastActive).toBe("function");
+    expect(typeof result.current?.lastActive).toBe("function");
+  });
+
+  test("initializes lastActive as null", () => {
+    const { result } = renderHook(() => useContext(InactifyContext), {
+      wrapper: InactifyProvider,
+    });
+
+    expect(result.current?.lastActive()).toBeNull();
+  });
+
+  test("markActive updates the lastActive timestamp", () => {
+    const { result } = renderHook(() => useContext(InactifyContext), {
+      wrapper: InactifyProvider,
+    });
+
+    const mockTime = new Date("2025-01-01");
+    vi.setSystemTime(mockTime);
+
+    act(() => {
+      result.current?.markActive();
+    });
+
+    expect(result.current?.lastActive()).toBe(mockTime.getTime());
+  });
+
+  test("updateLastActive sets specific timestamp", () => {
+    const { result } = renderHook(() => useContext(InactifyContext), {
+      wrapper: InactifyProvider,
+    });
+
+    const mockDate = new Date("2025-01-01");
+
+    act(() => {
+      result.current?.updateLastActive(mockDate);
+    });
+
+    expect(result.current?.lastActive()).toBe(mockDate.getTime());
+  });
+});
