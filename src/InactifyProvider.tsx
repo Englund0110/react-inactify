@@ -1,14 +1,14 @@
 import React from "react";
 
-type ProviderProps = {
+interface ProviderProps {
   children: React.ReactNode;
-};
+}
 
-type ContextType = {
+export interface ContextType {
   markActive: () => void;
   updateLastActive: (value: Date) => void;
   lastActive: () => number | null;
-};
+}
 
 export const InactifyContext = React.createContext<ContextType | undefined>(
   undefined
