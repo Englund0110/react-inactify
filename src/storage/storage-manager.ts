@@ -27,7 +27,7 @@ export class StorageManager {
   static set<T>(
     key: string,
     value: T,
-    storage: StorageApi = localStorage
+    storage: StorageApi = window.localStorage
   ): boolean {
     try {
       return this.setString(key, JSON.stringify(value), storage);
@@ -50,7 +50,7 @@ export class StorageManager {
   static setString(
     key: string,
     value: string,
-    storage: StorageApi = localStorage,
+    storage: StorageApi = window.localStorage,
     onError?: (error: Error) => void
   ): boolean {
     if (!storage) {
@@ -93,7 +93,7 @@ export class StorageManager {
    */
   static get<T>(
     key: string,
-    storage: StorageApi = localStorage,
+    storage: StorageApi = window.localStorage,
     options: GetOptions = { logError: true }
   ): T | undefined {
     try {
@@ -126,7 +126,7 @@ export class StorageManager {
    */
   static getString(
     key: string,
-    storage: StorageApi = localStorage
+    storage: StorageApi = window.localStorage
   ): string | undefined {
     if (!storage) {
       Logger.warning("Storage type not supported");
@@ -145,7 +145,7 @@ export class StorageManager {
   /**
    * Removes a specific key from storage.
    */
-  static remove(key: string, storage: StorageApi = localStorage): void {
+  static remove(key: string, storage: StorageApi = window.localStorage): void {
     if (!storage) {
       Logger.warning("Storage type not supported");
 
@@ -163,7 +163,7 @@ export class StorageManager {
    */
   static removeAllWithCondition(
     predicate: (key: string) => boolean,
-    storage: StorageApi = localStorage
+    storage: StorageApi = window.localStorage
   ): void {
     if (!storage) {
       Logger.warning("Storage type not supported");
@@ -182,7 +182,7 @@ export class StorageManager {
   /**
    * Clears all keys in a given storage.
    */
-  static clear(storage: StorageApi = localStorage): void {
+  static clear(storage: StorageApi = window.localStorage): void {
     if (!storage) {
       Logger.warning("Storage type not supported");
 
@@ -194,7 +194,7 @@ export class StorageManager {
   /**
    * Returns all keys in a given storage.
    */
-  static getKeys(storage: StorageApi = localStorage): string[] {
+  static getKeys(storage: StorageApi = window.localStorage): string[] {
     const keys: string[] = [];
     for (let i = 0; i < storage.length; i++) {
       const key = storage.key(i);
