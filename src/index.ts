@@ -1,2 +1,5 @@
-export { InactifyProvider, InactifyContext } from "./InactifyProvider";
-export { useInactify } from "./useInactify";
+export {
+  InactifyProvider,
+  InactifyContext,
+  useInactify,
+} from "./InactifyProvider";

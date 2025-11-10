@@ -1,4 +1,4 @@
-import { InactifyProvider, useInactify } from "../../src";
+import { InactifyProvider, useInactify } from "../../src/index";
 
 const Button = () => {
   const { markActive } = useInactify();
@@ -23,7 +23,7 @@ const TimeDisplay = () => {
 export function App() {
   return (
     <>
-      <InactifyProvider>
+      <InactifyProvider defaultOptions={{ storage: window.sessionStorage }}>
         <Button />
         <TimeDisplay />
       </InactifyProvider>

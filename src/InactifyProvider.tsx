@@ -1,43 +1,75 @@
 import React from "react";
+import { StorageManager } from "./storage/storage-manager";
 
-type ProviderProps = {
-  children: React.ReactNode;
-};
+const STORAGE_KEY_LAST_ACTIVE = "last_active";
 
-type ContextType = {
+export interface InactifyProviderOptions {
+  storagePrefix?: string;
+  storage: Storage;
+}
+
+interface InactifyContextValue {
+  defaultOptions: InactifyProviderOptions;
   markActive: () => void;
   updateLastActive: (value: Date) => void;
   lastActive: () => number | null;
+}
+
+type InactifyProviderProps = {
+  children: React.ReactNode;
+  defaultOptions?: InactifyProviderOptions;
 };
 
-export const InactifyContext = React.createContext<ContextType | undefined>(
-  undefined
-);
+const DEFAULT_OPTIONS: InactifyProviderOptions = {
+  storage: window.localStorage,
+};
 
-export const InactifyProvider = ({ children }: ProviderProps) => {
-  const [lastActive, setLastActive] = React.useState<number | null>(null);
+export const InactifyContext = React.createContext<
+  InactifyContextValue | undefined
+>(undefined);
 
-  const setLastActiveTime = React.useCallback((value?: Date | undefined) => {
-    if (value) {
-      setLastActive(value.getTime());
-    }
+export const InactifyProvider = ({
+  children,
+  defaultOptions = DEFAULT_OPTIONS,
+}: InactifyProviderProps) => {
+  const [lastActive, setLastActive] = React.useState<number | null>(
+    () =>
+      StorageManager.get<number>(
+        STORAGE_KEY_LAST_ACTIVE,
+        defaultOptions.storage
+      ) ?? null
+  );
 
-    setLastActive(Date.now());
-  }, []);
+  const setLastActiveTime = React.useCallback(
+    (value?: Date) => {
+      const time = value ? value.getTime() : Date.now();
+      StorageManager.set(STORAGE_KEY_LAST_ACTIVE, time, defaultOptions.storage);
+      setLastActive(time);
+    },
+    [defaultOptions.storage]
+  );
 
-  const getLastActiveTime = React.useCallback(() => {
-    return lastActive;
-  }, [lastActive]);
+  const contextValue: InactifyContextValue = React.useMemo(
+    () => ({
+      lastActive: () => lastActive,
+      markActive: () => setLastActiveTime(),
+      updateLastActive: (value: Date) => setLastActiveTime(value),
+      defaultOptions,
+    }),
+    [lastActive, setLastActiveTime, defaultOptions]
+  );
 
   return (
-    <InactifyContext.Provider
-      value={{
-        markActive: setLastActiveTime,
-        updateLastActive: setLastActiveTime,
-        lastActive: getLastActiveTime,
-      }}
-    >
+    <InactifyContext.Provider value={contextValue}>
       {children}
     </InactifyContext.Provider>
   );
+};
+
+export const useInactify = () => {
+  const context = React.useContext(InactifyContext);
+  if (!context) {
+    throw new Error("useInactify must be used within an InactifyProvider");
+  }
+  return context;
 };
