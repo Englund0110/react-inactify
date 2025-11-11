@@ -12,8 +12,10 @@ vi.mock("../src/debug/logger", () => ({
 
 describe("StorageManager", () => {
   beforeEach(() => {
-    window.localStorage.clear();
-    window.sessionStorage.clear();
+    if (window.localstorage) {
+      window.localStorage.clear();
+      window.sessionStorage.clear();
+    }
     vi.clearAllMocks();
   });
 
