@@ -1,6 +1,5 @@
 export {
   InactifyProvider,
   InactifyContext,
-  type ContextType,
+  useInactify,
 } from "./InactifyProvider";
-export { useInactify } from "./useInactify";
