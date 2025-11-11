@@ -14,6 +14,8 @@ describe("StorageManager", () => {
   beforeEach(() => {
     if (window.localstorage) {
       window.localStorage.clear();
+    }
+    if (window.sessionStorage) {
       window.sessionStorage.clear();
     }
     vi.clearAllMocks();
