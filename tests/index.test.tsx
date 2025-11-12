@@ -33,12 +33,12 @@ describe("InactifyProvider", () => {
     expect(typeof result.current?.lastActive).toBe("function");
   });
 
-  test("initializes lastActive as null", () => {
+  test("initializes lastActive as now", () => {
     const { result } = renderHook(() => useContext(InactifyContext), {
       wrapper: InactifyProvider,
     });
 
-    expect(result.current?.lastActive()).toBeNull();
+    expect(result.current?.lastActive()).toBe(Date.now());
   });
 
   test("markActive updates the lastActive timestamp", () => {
