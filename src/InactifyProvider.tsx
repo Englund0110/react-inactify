@@ -1,28 +1,40 @@
 import React from "react";
-import { StorageManager } from "./storage/storage-manager";
-
-const STORAGE_KEY_LAST_ACTIVE = "last_active";
+import { ActivityManager } from "./managers/activity-manager";
+import { TabManager } from "./managers/tab-manager";
 
 export interface InactifyProviderOptions {
   storagePrefix?: string;
   storage: Storage;
+  syncActivityAcrossTabs?: boolean;
 }
 
 interface InactifyContextValue {
   defaultOptions: InactifyProviderOptions;
+  /** Manually mark the user as active */
   markActive: () => void;
-  updateLastActive: (value: Date) => void;
+  /** Get the last activity timestamp in milliseconds */
   lastActive: () => number | null;
+  /** Check if the user is inactive for a given timeout */
+  isInactive: (timeout: number) => boolean;
+  /** Get the current tab ID (only in per-tab mode) */
+  getTabId: () => string | null;
+  /** Check if this is the only active tab (only in per-tab mode) */
+  isOnlyTab: () => boolean;
+  /** Get the count of active tabs (only in per-tab mode) */
+  getActiveTabCount: () => number;
+  /** Manually update the last active time */
+  updateLastActive: (value: Date) => void;
 }
 
-type InactifyProviderProps = {
+interface InactifyProviderProps {
   children: React.ReactNode;
   defaultOptions?: InactifyProviderOptions;
-};
+}
 
 const DEFAULT_OPTIONS: InactifyProviderOptions = {
   storage: window.localStorage,
-};
+  syncActivityAcrossTabs: true,
+} as const;
 
 export const InactifyContext = React.createContext<
   InactifyContextValue | undefined
@@ -32,32 +44,56 @@ export const InactifyProvider = ({
   children,
   defaultOptions = DEFAULT_OPTIONS,
 }: InactifyProviderProps) => {
-  const [lastActive, setLastActive] = React.useState<number | null>(
-    () =>
-      StorageManager.get<number>(
-        STORAGE_KEY_LAST_ACTIVE,
-        defaultOptions.storage
-      ) ?? null
+  const activityManagerRef = React.useRef<ActivityManager | null>(null);
+
+  const getActivityManager = () => {
+    if (!activityManagerRef.current) {
+      activityManagerRef.current = new ActivityManager({
+        syncAcrossTabs:
+          defaultOptions.syncActivityAcrossTabs ??
+          DEFAULT_OPTIONS.syncActivityAcrossTabs ??
+          true,
+        storagePrefix: defaultOptions.storagePrefix,
+      });
+    }
+    return activityManagerRef.current;
+  };
+
+  const [lastActive, setLastActive] = React.useState<number | null>(() =>
+    getActivityManager().getLastActivityTime()
   );
 
-  const setLastActiveTime = React.useCallback(
-    (value?: Date) => {
-      const time = value ? value.getTime() : Date.now();
-      StorageManager.set(STORAGE_KEY_LAST_ACTIVE, time, defaultOptions.storage);
-      setLastActive(time);
-    },
-    [defaultOptions.storage]
-  );
+  React.useEffect(() => {
+    const activityManager = getActivityManager();
+    const unsubscribe = activityManager.subscribe(setLastActive);
 
-  const contextValue: InactifyContextValue = React.useMemo(
-    () => ({
+    return () => {
+      unsubscribe();
+    };
+  }, [defaultOptions.syncActivityAcrossTabs, defaultOptions.storagePrefix]);
+
+  React.useEffect(() => {
+    return () => {
+      if (activityManagerRef.current) {
+        activityManagerRef.current.destroy();
+      }
+    };
+  }, []);
+
+  const contextValue: InactifyContextValue = React.useMemo(() => {
+    const activityManager = getActivityManager();
+
+    return {
+      isInactive: (timeout: number) => activityManager.isInactive(timeout),
+      getTabId: () => TabManager.tabId,
+      isOnlyTab: () => TabManager.getActiveTabsCount() === 1,
+      getActiveTabCount: () => TabManager.getActiveTabsCount(),
       lastActive: () => lastActive,
-      markActive: () => setLastActiveTime(),
-      updateLastActive: (value: Date) => setLastActiveTime(value),
+      markActive: () => activityManager.markActive(),
+      updateLastActive: (value: Date) => activityManager.markActive(value),
       defaultOptions,
-    }),
-    [lastActive, setLastActiveTime, defaultOptions]
-  );
+    };
+  }, [lastActive, defaultOptions]);
 
   return (
     <InactifyContext.Provider value={contextValue}>

@@ -3,9 +3,7 @@
  * Automatically prefixes messages with timestamps and log levels.
  */
 
-export interface LogMetadata {
-  [key: string]: unknown;
-}
+export type LogMetadata = Record<string, unknown>;
 
 /**
  * Logging interface.

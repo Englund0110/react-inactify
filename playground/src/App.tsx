@@ -16,14 +16,19 @@ const Button = () => {
 };
 
 const TimeDisplay = () => {
-  const { lastActive: getLastActiveTime } = useInactify();
-  return <p>Last active time: {getLastActiveTime() ?? "N/A"}</p>;
+  const { lastActive } = useInactify();
+  return <p>Last active time: {lastActive() ?? "N/A"}</p>;
 };
 
 export function App() {
   return (
     <>
-      <InactifyProvider defaultOptions={{ storage: window.sessionStorage }}>
+      <InactifyProvider
+        defaultOptions={{
+          storage: window.sessionStorage,
+          syncActivityAcrossTabs: false,
+        }}
+      >
         <Button />
         <TimeDisplay />
       </InactifyProvider>
