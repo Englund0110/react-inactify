@@ -22,6 +22,12 @@ export class ActivityManager {
   private storageListener: ((event: StorageEvent) => void) | undefined;
   private listeners = new Set<(lastActive: number) => void>();
   private isStorageListenerActive = false;
+  private inactivityWatchers = new Map<
+    number,
+    { callbacks: Set<() => void>; timerId?: number | undefined }
+  >();
+  private internalListener = (lastActive: number) =>
+    this.rescheduleInactivityTimers(lastActive);
 
   constructor(options: ActivityManagerOptions) {
     this.options = options;
@@ -36,6 +42,9 @@ export class ActivityManager {
     if (!options.syncAcrossTabs) {
       this._storageKey = `${this._storageKey}_${TabManager.tabId}`;
     }
+
+    // Add internal listener to handle rescheduling inactivity timers
+    this.listeners.add(this.internalListener);
   }
 
   /**
@@ -57,7 +66,7 @@ export class ActivityManager {
   /**
    * Checks if the user is inactive based on a timeout in milliseconds
    */
-  isInactive(timeoutMs: number): boolean {
+  isInactiveFor(timeoutMs: number): boolean {
     return Date.now() - this.getLastActivityTime() >= timeoutMs;
   }
 
@@ -69,7 +78,96 @@ export class ActivityManager {
   }
 
   /**
-   * Sets up a listener for storage events to sync activity across tabs
+   * Subscribes to lastActive updates
+   * @param callback Callback to invoke on lastActive updates
+   * @returns Unsubscribe function
+   */
+  subscribe(callback: (lastActive: number) => void): () => void {
+    this.listeners.add(callback);
+
+    // Set up storage listener if this is the first subscriber and sync is enabled
+    if (this.listeners.size === 1 && this.options.syncAcrossTabs) {
+      this.setupStorageListener();
+    }
+
+    // Immediately notify the new listener with current value
+    callback(this.getLastActivityTime());
+
+    return () => {
+      this.listeners.delete(callback);
+      // Remove storage listener if no more subscribers
+      if (this.listeners.size === 0 && this.options.syncAcrossTabs) {
+        this.removeStorageListener();
+      }
+    };
+  }
+
+  /**
+   * Subscribes to be notified when user is inactive for timeoutInMilliseconds
+   * @param timeoutInMilliseconds Timeout in milliseconds
+   * @param callback Callback to invoke when user is inactive
+   * @returns Unsubscribe function
+   */
+  subscribeToInactivity(
+    timeoutInMilliseconds: number,
+    callback: () => void
+  ): () => void {
+    if (!this.inactivityWatchers.has(timeoutInMilliseconds)) {
+      this.inactivityWatchers.set(timeoutInMilliseconds, {
+        callbacks: new Set(),
+      });
+    }
+
+    const entry = this.inactivityWatchers.get(timeoutInMilliseconds);
+
+    if (!entry) {
+      throw new Error("Inactivity watcher entry not found after creation");
+    }
+
+    entry.callbacks.add(callback);
+
+    this.rescheduleInactivityTimers(this.getLastActivityTime());
+
+    return () => {
+      const e = this.inactivityWatchers.get(timeoutInMilliseconds);
+
+      if (!e) {
+        return;
+      }
+
+      e.callbacks.delete(callback);
+
+      if (e.callbacks.size === 0) {
+        if (e.timerId) {
+          clearTimeout(e.timerId);
+        }
+
+        this.inactivityWatchers.delete(timeoutInMilliseconds);
+      }
+    };
+  }
+
+  /**
+   * Cleans up resources used by the ActivityManager
+   */
+  destroy(): void {
+    this.removeStorageListener();
+    this.listeners.clear();
+
+    // Clear all inactivity timers
+    for (const [, entry] of this.inactivityWatchers) {
+      if (entry.timerId) {
+        clearTimeout(entry.timerId);
+      }
+    }
+
+    this.inactivityWatchers.clear();
+
+    Logger.info("ActivityManager destroyed");
+  }
+
+  /**
+   * Sets up the storage event listener for cross-tab activity synchronization
    */
   private setupStorageListener(): void {
     if (this.storageListener) {
@@ -108,43 +206,54 @@ export class ActivityManager {
   }
 
   /**
-   * Registers a callback to be invoked when activity state changes
+   * Notifies all registered listeners of a lastActive update
+   * @param lastActive The latest last active timestamp in milliseconds
    */
-  subscribe(callback: (lastActive: number) => void): () => void {
-    this.listeners.add(callback);
-
-    // Set up storage listener if this is the first subscriber and sync is enabled
-    if (this.listeners.size === 1 && this.options.syncAcrossTabs) {
-      this.setupStorageListener();
-    }
-
-    // Immediately notify the new listener with current value
-    callback(this.getLastActivityTime());
-
-    return () => {
-      this.listeners.delete(callback);
-      // Remove storage listener if no more subscribers
-      if (this.listeners.size === 0 && this.options.syncAcrossTabs) {
-        this.removeStorageListener();
-      }
-    };
-  }
-
-  /**
-   * Clean up resources
-   */
-  destroy(): void {
-    this.removeStorageListener();
-    this.listeners.clear();
-    Logger.info("ActivityManager destroyed");
-  }
-
   private notifyListeners(lastActive: number): void {
     for (const listener of this.listeners) {
       try {
         listener(lastActive);
       } catch (err) {
         Logger.error("Error in activity listener", err);
+      }
+    }
+  }
+
+  /**
+   * Reschedules inactivity timers based on the latest lastActive timestamp
+   * @param lastActive The latest last active timestamp in milliseconds
+   */
+  private rescheduleInactivityTimers(lastActive: number): void {
+    for (const [timeoutMs, entry] of this.inactivityWatchers) {
+      if (entry.timerId) {
+        clearTimeout(entry.timerId);
+        entry.timerId = undefined;
+      }
+
+      const inactiveFor = Date.now() - lastActive;
+      const remaining = timeoutMs - inactiveFor;
+
+      if (remaining <= 0) {
+        // If already inactive, trigger callbacks immediately
+        for (const cb of entry.callbacks) {
+          try {
+            setTimeout(cb, 0);
+          } catch (err) {
+            Logger.error("Error in inactivity callback", err);
+          }
+        }
+      } else {
+        // Schedule timer to trigger after remaining time
+        entry.timerId = window.setTimeout(() => {
+          for (const cb of entry.callbacks) {
+            try {
+              cb();
+            } catch (err) {
+              Logger.error("Error in inactivity callback", err);
+            }
+          }
+          entry.timerId = undefined;
+        }, remaining);
       }
     }
   }

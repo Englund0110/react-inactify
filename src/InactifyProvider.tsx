@@ -15,7 +15,7 @@ interface InactifyContextValue {
   /** Get the last activity timestamp in milliseconds */
   lastActive: () => number | null;
   /** Check if the user is inactive for a given timeout */
-  isInactive: (timeout: number) => boolean;
+  isInactiveFor: (timeoutInMilliseconds: number) => boolean;
   /** Get the current tab ID (only in per-tab mode) */
   getTabId: () => string | null;
   /** Check if this is the only active tab (only in per-tab mode) */
@@ -24,6 +24,11 @@ interface InactifyContextValue {
   getActiveTabCount: () => number;
   /** Manually update the last active time */
   updateLastActive: (value: Date) => void;
+  /** Subscribe when user becomes inactive for a given timeout */
+  subscribeToInactivity: (
+    timeoutInMilliseconds: number,
+    callback: () => void
+  ) => () => void;
 }
 
 interface InactifyProviderProps {
@@ -84,13 +89,19 @@ export const InactifyProvider = ({
     const activityManager = getActivityManager();
 
     return {
-      isInactive: (timeout: number) => activityManager.isInactive(timeout),
+      isInactiveFor: (timeout: number) =>
+        activityManager.isInactiveFor(timeout),
       getTabId: () => TabManager.tabId,
       isOnlyTab: () => TabManager.getActiveTabsCount() === 1,
       getActiveTabCount: () => TabManager.getActiveTabsCount(),
       lastActive: () => lastActive,
       markActive: () => activityManager.markActive(),
       updateLastActive: (value: Date) => activityManager.markActive(value),
+      subscribeToInactivity: (
+        timeoutInMilliseconds: number,
+        callback: () => void
+      ) =>
+        activityManager.subscribeToInactivity(timeoutInMilliseconds, callback),
       defaultOptions,
     };
   }, [lastActive, defaultOptions]);
