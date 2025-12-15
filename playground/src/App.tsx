@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { InactifyProvider, useInactify } from "../../src/index";
 
-const ActivateButton = () => {
+const MarkAsActiveButton = () => {
   const { markActive } = useInactify();
   return <button onClick={markActive}>Mark as active</button>;
 };
@@ -48,7 +48,7 @@ export function App() {
         syncActivityAcrossTabs: false,
       }}
     >
-      <ActivateButton />
+      <MarkAsActiveButton />
       <ActivityStatus />
     </InactifyProvider>
   );
