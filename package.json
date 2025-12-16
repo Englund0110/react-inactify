@@ -1,6 +1,6 @@
 {
   "name": "react-inactify",
-  "version": "0.0.1",
+  "version": "0.1.0-alpha1",
   "description": "React library for measuring user inactivity and handling idle time events.",
   "type": "module",
   "license": "MIT",
