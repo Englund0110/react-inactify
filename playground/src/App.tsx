@@ -3,74 +3,53 @@ import { InactifyProvider, useInactify } from "../../src/index";
 
 const MarkAsActiveButton = () => {
   const { markActive } = useInactify();
-  return (
-    <>
-      <button
-        onClick={() => {
-          markActive();
-        }}
-      >
-        Mark as active
-      </button>
-    </>
-  );
+  return <button onClick={markActive}>Mark as active</button>;
 };
 
-const TimeDisplay = () => {
-  const { lastActive, isInactiveFor: isInActiveFor } = useInactify();
+const ActivityStatus = () => {
+  const { lastActive, isInactiveFor } = useInactify();
   const [idleInMilliseconds, setIdleInMilliseconds] = useState<number>(0);
 
   useEffect(() => {
-    const intervalId = window.setInterval(() => {
+    const calculateIdle = () => {
       const last = lastActive();
       setIdleInMilliseconds(last ? Date.now() - last : 0);
-    }, 1000);
-
-    return () => {
-      clearInterval(intervalId);
     };
+
+    calculateIdle();
+    const id = window.setInterval(calculateIdle, 1000);
+    return () => clearInterval(id);
   }, [lastActive]);
 
-  const isUserIdle = isInActiveFor(5000);
-  const lastActiveTime = lastActive();
+  const last = lastActive();
+  const isIdle = isInactiveFor(5000);
 
   return (
     <div>
-      {lastActiveTime && (
+      {last ? (
         <>
-          <p>
-            Last active time:{" "}
-            {lastActive()
-              ? new Date(lastActiveTime).toLocaleString("da-DK")
-              : "N/A"}
-          </p>
-          <p>Idle time: {(idleInMilliseconds / 1000).toFixed(0)}s</p>
+          <p>Last active: {new Date(last).toLocaleString("da-DK")}</p>
+          <p>Idle: {(idleInMilliseconds / 1000).toFixed(0)}s</p>
         </>
-      )}
-      {!lastActiveTime && <p>No activity recorded yet.</p>}
-      {isUserIdle ? (
-        <div>
-          <strong>User is inactive</strong>
-        </div>
       ) : (
-        <div>User is active</div>
+        <p>No activity recorded yet.</p>
       )}
+
+      <div>{isIdle ? <strong>User is inactive</strong> : "User is active"}</div>
     </div>
   );
 };
 
 export function App() {
   return (
-    <>
-      <InactifyProvider
-        defaultOptions={{
-          storage: window.sessionStorage,
-          syncActivityAcrossTabs: false,
-        }}
-      >
-        <MarkAsActiveButton />
-        <TimeDisplay />
-      </InactifyProvider>
-    </>
+    <InactifyProvider
+      defaultOptions={{
+        storage: window.sessionStorage,
+        syncActivityAcrossTabs: false,
+      }}
+    >
+      <MarkAsActiveButton />
+      <ActivityStatus />
+    </InactifyProvider>
   );
 }
