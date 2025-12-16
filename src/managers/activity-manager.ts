@@ -66,8 +66,8 @@ export class ActivityManager {
   /**
    * Checks if the user is inactive based on a timeout in milliseconds
    */
-  isInactiveFor(timeoutMs: number): boolean {
-    return Date.now() - this.getLastActivityTime() >= timeoutMs;
+  isInactiveFor(timeoutInMilliseconds: number): boolean {
+    return Date.now() - this.getLastActivityTime() >= timeoutInMilliseconds;
   }
 
   /**
@@ -224,14 +224,14 @@ export class ActivityManager {
    * @param lastActive The latest last active timestamp in milliseconds
    */
   private rescheduleInactivityTimers(lastActive: number): void {
-    for (const [timeoutMs, entry] of this.inactivityWatchers) {
+    for (const [timeoutInMilliseconds, entry] of this.inactivityWatchers) {
       if (entry.timerId) {
         clearTimeout(entry.timerId);
         entry.timerId = undefined;
       }
 
       const inactiveFor = Date.now() - lastActive;
-      const remaining = timeoutMs - inactiveFor;
+      const remaining = timeoutInMilliseconds - inactiveFor;
 
       if (remaining <= 0) {
         // If already inactive, trigger callbacks immediately
